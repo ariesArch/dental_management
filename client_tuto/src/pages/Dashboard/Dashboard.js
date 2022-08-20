@@ -1,6 +1,7 @@
 import React from "react";
 import axios from 'axios'
-import Modal from "../../components/Helpers/Modal";
+import FormModal from "../../components/Helpers/FormModal";
+import DeleteModal from "../../components/Helpers/DeleteModal";
 class Dashboard extends React.Component {
     constructor() {
         super();
@@ -13,8 +14,13 @@ class Dashboard extends React.Component {
             township:'',
             phone:'',
             _id:'',
-            open_confirm_dialog:false
+            open_confirm_dialog:false,
+            dialog_title:'Create User'
         }
+        this.onChangeInput = this.onChangeInput.bind(this)
+        this.handleEdit = this.handleEdit.bind(this)
+        this.handleDelete = this.handleDelete.bind(this)
+        this.submitDelete = this.submitDelete.bind(this)
     }
     fetchUser() {
         axios.get('http://localhost:8000/users').then((response)=> {
@@ -23,76 +29,48 @@ class Dashboard extends React.Component {
             console.log(err);
         })
     }
-    handleFormDialog() {
-        this.setState({open_form_dialog:!this.state.open_form_dialog})
-    }
     handleConfirmDialog() {
         this.setState({ open_confirm_dialog: !this.state.open_confirm_dialog })
     }
-    handleName(e) {
-        this.setState({name:e.target.value});
-    }
-    handleEmail(e) {
-        this.setState({ email: e.target.value });
-    }
-    handlePhone(e) {
-        this.setState({ phone: e.target.value });
-    }
-    handleCity(e) {
-        this.setState({ city: e.target.value });
-    }
-    handleTownship(e) {
-        this.setState({ township: e.target.value });
+    onChangeInput(e) {
+        this.setState(()=> {
+            let input_name = e.target.name;
+            return {
+                [input_name] : e.target.value
+            }
+        });
+        // this.setState({ [e.target.name]:e.target.value});
     }
     clearForm() {
-        this.setState({ name: '' })
-        this.setState({ email: '' })
-        this.setState({ phone: '' })
-        this.setState({ city: '' })
-        this.setState({ township: '' })
-        this.setState({ _id: '' })
-        this.handleFormDialog()
+        this.setState({ name: '', email: '', phone: '', city: '', township: '', _id: '' })
     }
     submitForm(evt) {
         evt.preventDefault();
-        // let payload = Object.assign({}, { name: this.state.name })
-        // payload = Object.assign(payload,{email:this.state.email})
         const payload = (({name,email,phone,city,township})=>({name,email,phone,city,township}))(this.state)
         if(this.state._id) {
-            console.log(payload)
-            axios.post(`http://localhost:8000/users/${this.state._id}`, payload).then((response) => {
+            axios.put(`http://localhost:8000/users/${this.state._id}`, payload).then((response) => {
                 let foundIndex = this.state.users.findIndex(user => user._id === this.state._id)
                 payload._id = this.state._id
                 this.state.users.splice(foundIndex,1,payload);
-                console.log(this.state.users)
-                this.clearForm()
             }).catch(err => {
                 console.log(err)
             })
+            this.clearForm()
         }else{
-            axios.post('http://localhost:8000/users/add', payload).then((response) => {
+            axios.post('http://localhost:8000/users', payload).then((response) => {
                 payload._id = response.data.insertedId
-                this.clearForm()
                 this.setState(prev => ({ users: [...prev.users, payload] }))
-
             }).catch(err => {
                 console.log(err)
             })
+            this.clearForm()
         }
     }
     handleEdit(obj) {
-        this.setState({ name: obj.name })
-        this.setState({ email: obj.email })
-        this.setState({ phone: obj.phone })
-        this.setState({ city: obj.city })
-        this.setState({ township: obj.township })
-        this.setState({ _id: obj._id })
-        this.handleFormDialog()
+        this.setState({ name: obj.name, email: obj.email, phone: obj.phone, city: obj.city, township: obj.township, _id: obj._id, dialog_title: `Edit User - ${obj.name}` })
     } 
     handleDelete(obj) {
-        this.setState({_id:obj._id})
-        console.log(obj)
-        this.handleConfirmDialog()
+        this.setState({_id:obj._id,name:obj.name,dialog_title:'Delete User'})
     }
     submitDelete() {
         axios.delete(`http://localhost:8000/users/${this.state._id}`).then((response)=> {
@@ -104,73 +82,96 @@ class Dashboard extends React.Component {
             console.log(err)
         })
     }
+    handleDialog() {
+        this.setState({dialog_title:'Create User'})
+    }
     componentDidMount() {
         this.fetchUser();
     }
     render() {
         return(
-        <div className="page-container">
-            <div style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-                    <h3>Dashboard Page</h3>
-                    <button onClick={this.handleFormDialog.bind(this)}>Create</button>
+        <div className="col-md-12">
+            <div className="d-flex justify-content-between mb-2">
+                    <h4 className="float-left">Dashboard</h4>
+                    <button onClick={this.handleDialog.bind(this)} className="btn btn-primary float-right" data-bs-target="#formModal" data-bs-toggle="modal">Create</button>
             </div>
-            <table border="2" width="90%">
+            <table className="table table-info table-striped table-hover table-bordered">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>City</th>
-                        <th>Township</th>
-                        <th>Actions</th>
+                        <th scope="col">ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Phone</th>
+                        <th scope="col">City</th>
+                        <th scope="col">Township</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {
                         this.state.users.map((user,index)=>
                             <tr key={index}>
+                                <th scope="row">{index+1}</th>
                                 <td>{user.name}</td>
                                 <td>{user.email}</td>
                                 <td>{user.phone}</td>
                                 <td>{user.city}</td>
                                 <td>{user.township}</td>
                                 <td>
-                                    <button onClick={this.handleEdit.bind(this,user)}>Edit</button>
-                                    <button onClick={this.handleDelete.bind(this,user)}>Delete</button>
+                                    <button onClick={()=>this.handleEdit(user)} className="btn btn-sm btn-info" data-bs-target="#formModal" data-bs-toggle="modal">Edit</button>
+                                    <button onClick={() => this.handleDelete(user)} className="btn btn-sm btn-danger" data-bs-target="#deleteModal" data-bs-toggle="modal">Delete</button>
                                 </td>
                             </tr>
                         )
                     }
                 </tbody>
             </table>
-            {
-                this.state.open_form_dialog && (
-                        <Modal>
-                            <form onSubmit={this.submitForm.bind(this)}>
-                                {this.state._id}
-                                <input required placeholder="your name" value={this.state.name} type="text" onChange={this.handleName.bind(this)}/>
-                                <input required placeholder="@gmail.com" value={this.state.email} type="email" onChange={this.handleEmail.bind(this)}/>
-                                <input required placeholder="phone" value={this.state.phone} type="text" onChange={this.handlePhone.bind(this)}/>
-                                <input required placeholder="your city" value={this.state.city} type="text" onChange={this.handleCity.bind(this)}/>
-                                <input required placeholder="your township" value={this.state.township} type="text" onChange={this.handleTownship.bind(this)}/>
-                                <div className="btn-container">
-                                    <button type="button" onClick={this.clearForm.bind(this)}>Cancel</button>
-                                    <button>Save</button>
-                                </div>
-                            </form>
-                        </Modal>
-                )
-            }
-            {
-                    this.state.open_confirm_dialog&&(
-                        <Modal>
-                            <div className="btn-container">
-                                Are you sure to delete!
-                                <button onClick={this.submitDelete.bind(this)}>Confirm</button>
+                <FormModal dialogTitle={this.state.dialog_title}>
+                <form onSubmit={this.submitForm.bind(this)}>
+                    <div className="modal-body">
+                        <div className="mb-3">
+                            <label htmlFor="name" className="form-label">Name</label>
+                            <div className="input-group">
+                                <span className="input-group-text" id="addon-name">@</span>
+                                    <input name="name" type="text" value={this.state.name} id="name" className="form-control" aria-describedby="addon-name" onChange={this.onChangeInput} />
                             </div>
-                        </Modal>
-                    )
-            }
+                        </div>
+                        <div className="mb-3">
+                            <label htmlFor="email" className="form-label">Email</label>
+                            <div className="input-group">
+                                    <input name="email" type="email" value={this.state.email} id="email" className="form-control" aria-describedby="addon-email" onChange={this.onChangeInput} />
+                                <span id="addon-email" className="input-group-text">@gmail.com</span>
+                            </div>
+                        </div>
+                        <div className="mb-3">
+                            <label htmlFor="phone" className="form-label">Phone</label>
+                            <div className="input-group">
+                                <span className="input-group-text">+95</span>
+                                    <input name="phone" type="number" value={this.state.phone} id="phone" className="form-control" onChange={this.onChangeInput} />
+                            </div>
+                        </div>
+                        <div className="mb-3">
+                            <label htmlFor="city" className="form-label">City</label>
+                                <input name="city" type="text" value={this.state.city} id="city" className="form-control" onChange={this.onChangeInput} />
+                        </div>
+                        <div className="mb-3">
+                            <label htmlFor="township" className="form-label">Township</label>
+                                <input name="township" type="text" value={this.state.township} id="township" className="form-control" onChange={this.onChangeInput} />
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" className="btn btn-primary" data-bs-dismiss="modal">Save</button>
+                    </div>
+                </form>
+                </FormModal>
+                <DeleteModal dialogTitle={this.state.dialog_title} >
+                    <p className="text-danger text-center">Are you soure to delete User - {this.state.name}?</p>
+                    <div className="modal-footer">
+                        <button className="btn btn-info" onClick={this.submitDelete} data-bs-dismiss="modal">Confirm</button>
+
+                    </div>
+                </DeleteModal>       
         </div>)
     }
 }
